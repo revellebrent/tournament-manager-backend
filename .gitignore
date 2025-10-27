@@ -1,5 +1,12 @@
+# deps & build
 node_modules/
-logs/
-.env
 dist/
 coverage/
+
+# env & logs
+.env
+logs/
+
+# OS/editor
+.DS_Store
+*.swp
