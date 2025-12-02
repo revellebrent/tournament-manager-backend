@@ -1,18 +1,26 @@
 const jwt = require("jsonwebtoken");
-const { JWT_SECRET } = require("../config");
-const { ERRORS } = require("../utils/constants");
+const User = require("../models/User");
 
-module.exports = (req, res, next) => {
-  const { authorization = "" } = req.headers;
-  if (!authorization.startsWith("Bearer ")) {
-    return res.status(401).send({ message: ERRORS.UNAUTHORIZED });
-  }
-  const token = authorization.replace("Bearer ", "");
+module.exports = async function auth(req, res, next) {
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload; // { _id: '...' }
-    return next();
-  } catch (e) {
-    return res.status(401).send({ message: ERRORS.UNAUTHORIZED });
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded._id);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid token user" });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error(err);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
+

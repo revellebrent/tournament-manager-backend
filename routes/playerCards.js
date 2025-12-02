@@ -1,12 +1,18 @@
-const router = require("express").Router();
-const { listMyCards, createCard, deleteCard } = require("../controllers/cards");
-const {
-  createCardValidator,
-  idParamValidator,
-} = require("../middlewares/validators");
+const express = require("express");
+const router = express.Router();
 
-router.get("/", listMyCards);
-router.post("/", createCardValidator, createCard);
-router.delete("/:id", idParamValidator, deleteCard);
+const auth = require("../middlewares/auth");
+
+const {
+  uploadPlayerCard,
+  shareCardWithCoach,
+} = require("../controllers/playerCardController");
+
+// Parent or Coach uploads card
+router.post("/", auth, uploadPlayerCard);
+
+// Parent shares card with coach
+router.patch("/:cardId/share", auth, shareCardWithCoach);
 
 module.exports = router;
+

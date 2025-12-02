@@ -1,58 +1,77 @@
+const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/user");
-const { JWT_SECRET } = require("../config");
-const { AppError } = require("../middlewares/errors");
-const { ERRORS } = require("../utils/constants");
 
-const createUser = async (req, res, next) => {
+exports.register = async (req, res) => {
   try {
-    const email = String(req.body.email || "")
-      .trim()
-      .toLowerCase();
-    const password = String(req.body.password || "");
-    const name = String(req.body.name || "");
+    const { name, email, password, role, clubName, phone } = req.body;
+
     const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({ email, password: hash, name });
-    return res
-      .status(201)
-      .send({ email: user.email, name: user.name, _id: user._id });
-  } catch (e) {
-    return next(e);
+
+    const user = await User.create({
+      name,
+      email,
+      password: hash,
+      role,
+      clubName,
+      phone,
+    });
+
+    res.status(201).json({
+      message: "User registered",
+      user: { id: user._id, name, email, role },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ message: "Registration failed" });
   }
 };
 
-const login = async (req, res, next) => {
+exports.login = async (req, res) => {
   try {
-    const email = String(req.body.email || "").toLowerCase();
-    const password = String(req.body.password || "");
-    console.log("[signin] body:", { email, havePassword: !!password });
+    const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select("+password");
-    console.log("[signin] user found?", !!user);
 
-    if (!user) throw new AppError(401, ERRORS.UNAUTHORIZED);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
-    const ok = await bcrypt.compare(password, user.password);
-    console.log("[signin] password matches?", ok);
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
-    if (!ok) throw new AppError(401, ERRORS.UNAUTHORIZED);
+    const token = jwt.sign(
+      { _id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: "7d" });
-    return res.send({ token });
-  } catch (e) {
-    return next(e);
+    res.json({
+      token,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Login failed" });
   }
 };
 
-const getMe = async (req, res, next) => {
+exports.getCurrentUser = async (req, res) => {
   try {
-    const me = await User.findById(req.user._id).select("email name");
-    if (!me) throw new AppError(404, ERRORS.NOT_FOUND);
-    return res.send(me);
-  } catch (e) {
-    return next(e);
+    const user = await User.findById(req.user._id);
+
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clubName: user.clubName,
+      phone: user.phone,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch user" });
   }
 };
 
-module.exports = { createUser, login, getMe };

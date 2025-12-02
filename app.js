@@ -1,46 +1,29 @@
-require("dotenv").config();
 const express = require("express");
-const mongoose = require("mongoose");
-const helmet = require("helmet");
 const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const { errors: celebrateErrors } = require("celebrate");
+const { requestLogger, errorLogger } = require("./middlewares/logger");
+const { errorHandler } = require("./middlewares/errors");
 const routes = require("./routes");
-const {
-  requestLogger,
-  errorLogger,
-  ensureLogsDir,
-} = require("./middlewares/logger");
-const errorHandler = require("./middlewares/errors");
-const { PORT, MONGODB_URI, CORS_ORIGIN } = require("./config");
 
 const app = express();
-ensureLogsDir();
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.log("Mongo Connected"))
-  .catch((e) => {
-    console.error("Mongo connection error:", e.message);
-    process.exit(1);
-  });
+// Core middleware
+app.use(cors());
+app.use(express.json());
 
-app.use(helmet());
-app.use(
-  cors({
-    origin: CORS_ORIGIN ? CORS_ORIGIN.split(",") : true,
-    credentials: true,
-  }),
-);
-app.use(express.json({ limit: "5mb" }));
-
+// Request logging
 app.use(requestLogger);
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
+app.get("/", (req, res) => {
+  res.send("Tournament Manager Backend is running.");
+});
+
+// Main API routes
 app.use("/api", routes);
 
+// Error logging
 app.use(errorLogger);
-app.use(celebrateErrors());
+
+// Centralized error handler (must be last)
 app.use(errorHandler);
 
-app.listen(PORT, () => console.log(`🚀 API on http://localhost:${PORT}/api`));
+module.exports = app;

@@ -17,11 +17,16 @@ const mapMongooseError = (err) => {
   return null;
 };
 
-module.exports = (err, req, res, next) => {
+const errorHandler = (err, req, res, next) => {
   const mapped = mapMongooseError(err);
+
   const status = err.statusCode || mapped?.statusCode || 500;
   const message = mapped?.message || err.message || ERRORS.SERVER;
+
   res.status(status).send({ message });
-  next();
 };
-module.exports.AppError = AppError;
+
+module.exports = {
+  errorHandler,
+  AppError,
+};
